@@ -1,0 +1,11 @@
+sample_id,sample_name,igt_description,igt_id,organism_id,hastag_id,10x_lane_id,cite_seq,prep_description,organ,target_cells,gating_strategy,number_cells_first_sort,ncells_preqc,ncells_outliers_nGenes,ncells_outliers_deadcells,ncells_outliers_lowCountADT,ncells_outliers_autofluorescence,ncells_postqc,mean_nCount_RNA_postqc,mean_nFeature_RNA_postqc,mean_nCount_HTO_postqc,mean_nCount_ADT_postqc
+1,Panel 1 Hash 6,1_ImmGen Pilot4 Panel 1,1,1,6,1,yes,Collagenase Type II 20 min,mammary gland,T cells,CD45+ CD3e+,"75,000",,,,,,,,,,
+2,Panel 1 Hash 7,1_ImmGen Pilot4 Panel 1,1,1,7,1,yes,Collagenase Type II 20 min,mammary gland,T cells,CD45+ CD3e+,"75,000",,,,,,,,,,
+3,Panel 1 Hash 8,1_ImmGen Pilot4 Panel 1,1,1,8,1,yes,Mechanical dissociation,spleen,Whole CD45,CD45+,"100,000",,,,,,,,,,
+4,Panel 1 Hash 9,1_ImmGen Pilot4 Panel 1,1,1,9,1,yes,Collagenase Type II 10 min,spleen,Whole CD45,CD45+,"100,000",,,,,,,,,,
+5,Panel 1 Hash 10,1_ImmGen Pilot4 Panel 1,1,1,10,1,yes,Collagenase Type II 10 min,spleen,Whole CD45,CD45+,"100,000",,,,,,,,,,
+7,Panel 2 Hash 6,2_ImmGen Pilot4 Panel 2,2,2,6,2,yes,,blood,T cells,CD45+ CD3e+,"5,000",,,,,,,,,,
+8,Panel 2 Hash 7,2_ImmGen Pilot4 Panel 2,2,2,7,2,yes,,blood,T cells,CD45+ CD3e+,"10,000",,,,,,,,,,
+9,Panel 2 Hash 8,2_ImmGen Pilot4 Panel 2,2,2,8,2,yes,,spleen,Whole CD45,CD45+,"30,000",,,,,,,,,,
+10,Panel 2 Hash 9,2_ImmGen Pilot4 Panel 2,2,2,9,2,yes,,spleen,Whole CD45,CD45+,"60,000",,,,,,,,,,
+11,Panel 2 Hash 10,2_ImmGen Pilot4 Panel 2,2,2,10,2,yes,,bone marrow,T cells,CD45+ CD3e+,"30,000",,,,,,,,,,

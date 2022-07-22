@@ -1,0 +1,10 @@
+packrat/
+rsconnect/
+old_stuff/
+.RData
+.Rprofile
+manifest.json
+.Rproj.user/
+ADT_Viewer.Rproj
+SCRNA*/
+.Rhistory
