@@ -39,7 +39,7 @@ ui <- fluidPage(
   
   ### Header
   titlePanel(fluidRow(column(
-    4, img(src = "ImmGenIcon.png")
+    4, img(src = "ImmGenTIcon.png", height="60", width="50%")
   ),
   column(
     4,
@@ -67,9 +67,9 @@ ui <- fluidPage(
       HTML("<br> <br>"),
       selectInput(
         "selected_igt_id",
-        "IGT ID",
+        "Dataset",
         choices = unique(sample_metadata$igt_description),
-        selected = '1_ImmGen Pilot4 Panel 1'
+        selected = '2_Spleen BM Thymus Blood at steadystate'
       ),
       selectInput(
         "selected_igt_samples",
@@ -79,6 +79,8 @@ ui <- fluidPage(
       ),
       conditionalPanel(condition = "input.tabs == 'Heatmap'",
                        uiOutput("clusterSelector")),
+      conditionalPanel(condition = "input.tabs == 'Heatmap'",
+                       uiOutput("GeneSelector")),
       textOutput("description"),
       downloadLink('downloadData', 'Ab list is here'),
       width = 2
@@ -353,49 +355,126 @@ server <- function(input, output, session) {
   
   
   #according to the dataset selected, update the adt protein list
+  datasetInput <- reactive({
+    sc <-
+      readRDS(paste0("./IGT", strsplit(input$selected_igt_id, "_")[[1]][1], "/dataset.Rds"))
+    
+    samples_to_subset <- input$selected_igt_samples
+    
+    Idents(sc) <- sc$sample_name
+    sc <- subset(sc, idents = samples_to_subset)
+    
+    adtumap1 <- sc@reductions$umap_adt@cell.embeddings[, 1]
+    adtumap2 <- sc@reductions$umap_adt@cell.embeddings[, 2]
+    rnaumap1 <- sc@reductions$umap_rna@cell.embeddings[, 1]
+    rnaumap2 <- sc@reductions$umap_rna@cell.embeddings[, 2]
+    
+    data <- as.data.frame(t(as.matrix(sc@assays$ADT@counts)))
+    data <- log2(data + 1)
+    data <- data[, order(colnames(data))]
+    
+    rna_data <- sc@assays$RNA@data
+    proteinList <- sc@assays$ADT@var.features
+    geneList <- sc@assays$RNA@var.features
+    return(list(
+      data,
+      adtumap1,
+      adtumap2,
+      rnaumap1,
+      rnaumap2,
+      sc@meta.data,
+      rna_data,
+      sc,
+      geneList,
+      proteinList
+      
+    ))
+  })
+  
+  datasetInput_d <- datasetInput %>% debounce(100)
+  
+  
   observeEvent(input$selected_igt_id, {
+    reset("gene",asis = FALSE)
+    reset("GeneSelector",asis = FALSE)
+    
+    session$resetBrush("ADT_brush")
+    session$resetBrush("plot4_brush")
+    session$resetBrush("facs1_brush")
+    session$resetBrush("facs2_brush")
+    session$resetBrush("plot1_brush")
+    
+    data = datasetInput_d()
+    
+    geneList = data[[9]]
+    proteinList = data[[10]]
+
     updateSelectizeInput(
       session,
       inputId = "plot1_X",
       label = "X axis",
-      choices = as.list(ADT_table$Protein_Symbol),
+      choices = as.list(proteinList),
       selected = "TCRB"
     )
     updateSelectizeInput(
       session,
       inputId = "plot1_Y",
       label = "Y axis",
-      choices = as.list(ADT_table$Protein_Symbol),
+      choices = as.list(proteinList),
       selected = "TCRGD"
     )
     updateSelectizeInput(
       session,
       inputId = "plot2_X",
       label = "X axis",
-      choices = as.list(ADT_table$Protein_Symbol),
+      choices = as.list(proteinList),
       selected = "CD4"
     )
     updateSelectizeInput(
       session,
       inputId = "plot2_Y",
       label = "Y axis",
-      choices = as.list(ADT_table$Protein_Symbol),
+      choices = as.list(proteinList),
       selected = "CD8A"
     )
     updateSelectizeInput(
       session,
       inputId = "plot3_X",
       label = "X axis",
-      choices = as.list(ADT_table$Protein_Symbol),
+      choices = as.list(proteinList),
       selected = "CD44"
     )
     updateSelectizeInput(
       session,
       inputId = "plot3_Y",
       label = "Y axis",
-      choices = as.list(ADT_table$Protein_Symbol),
+      choices = as.list(proteinList),
       selected = "CD62L"
     )
+    
+    output$GeneSelector <- renderUI({
+      
+ if (input$cluster == 'feature_plot'){
+   data = datasetInput_d()
+   
+   geneList = data[[9]]
+   reset("gene",asis = FALSE)
+   reset("GeneSelector",asis = FALSE)
+        
+        
+        #updateSelectizeInput(
+          #session,
+        selectizeInput("gene", "Select Gene", as.list(c(geneList)),
+                         selected = "Cd8a")
+      }else {
+      }
+      
+    })
+    output$clusterSelector <- renderUI({
+      selectizeInput("cluster", "Cluster color", as.list(c("seurat_clusters", "hash.ID", 'sample_name','singler_immgen','feature_plot')),
+                     selected = "sample_name")
+      
+    })
   })
   
   
@@ -409,11 +488,8 @@ server <- function(input, output, session) {
   })
   
   #depending on the dataset, select the clusters needed to show on the main screen
-  output$clusterSelector <- renderUI({
-    selectizeInput("cluster", "Cluster color", as.list(c("seurat_clusters", "hash.ID", 'sample_name')),
-                   selected = "sample_name")
-    
-  })
+
+
   
   output$description <- renderText({
     description <- read.csv("descriptions.csv")
@@ -454,37 +530,7 @@ server <- function(input, output, session) {
   })
   
   
-  datasetInput <- reactive({
-    sc <-
-      readRDS(paste0("./SCRNA", strsplit(input$selected_igt_id, "_")[[1]][1], "/dataset.Rds"))
-    
-    samples_to_subset <- input$selected_igt_samples
-    
-    Idents(sc) <- sc$sample_name
-    sc <- subset(sc, idents = samples_to_subset)
-    
-    adtumap1 <- sc@reductions$adt.umap@cell.embeddings[, 1]
-    adtumap2 <- sc@reductions$adt.umap@cell.embeddings[, 2]
-    rnaumap1 <- sc@reductions$rnaumap@cell.embeddings[, 1]
-    rnaumap2 <- sc@reductions$rnaumap@cell.embeddings[, 2]
-    
-    data <- as.data.frame(t(as.matrix(sc@assays$ADT@counts)))
-    data <- log2(data + 1)
-    data <- data[, order(colnames(data))]
-    
-    rna_data <- sc@assays$RNA@data
-    return(list(
-      data,
-      adtumap1,
-      adtumap2,
-      rnaumap1,
-      rnaumap2,
-      sc@meta.data,
-      rna_data
-    ))
-  })
   
-  datasetInput_d <- datasetInput %>% debounce(100)
   
   output$prot_plot1 <- renderPlot({
     
@@ -761,7 +807,7 @@ server <- function(input, output, session) {
                                                                   "grey89") +
           ggtitle("Protein UMAP") + theme_bw() + theme(plot.title = element_text(hjust = 0.5, size =
                                                                                    20)) + removeGrid()
-        g2 + g1
+        g1 + g2
       } else{
         if (xor(!is.null(facs1$x),!is.null(facs2$x))) {
           if (is.null(facs1$x)) {
@@ -802,7 +848,7 @@ server <- function(input, output, session) {
             ) +
             ggtitle("Protein UMAP") + theme_bw() + theme(plot.title = element_text(hjust = 0.5, size =
                                                                                      20)) + removeGrid()
-          g2 + g1
+          g1 + g2
         } else{
           if (!is.null(facs1$x) & !is.null(facs2$x)) {
             data2 <-
@@ -829,7 +875,7 @@ server <- function(input, output, session) {
                                                                         "grey89") +
                 ggtitle("Protein UMAP") + theme_bw() + theme(plot.title = element_text(hjust = 0.5, size =
                                                                                          20)) + removeGrid()
-              g2 + g1
+              g1 + g2
             } else{
               if (input$UMAP_gate == "A") {
                 data2 <-
@@ -861,7 +907,7 @@ server <- function(input, output, session) {
                   ) +
                   ggtitle("Protein UMAP") + theme_bw() + theme(plot.title = element_text(hjust = 0.5, size =
                                                                                            20)) + removeGrid()
-                g2 + g1
+                g1 + g2
               } else{
                 if (input$UMAP_gate == "B") {
                   data2 <-
@@ -893,7 +939,7 @@ server <- function(input, output, session) {
                     ) +
                     ggtitle("Protein UMAP") + theme_bw() + theme(plot.title = element_text(hjust = 0.5, size =
                                                                                              20)) + removeGrid()
-                  g2 + g1
+                  g1 + g2
                 } else{
                   if (input$UMAP_gate == "A+B") {
                     if (!is.null(facs1$x)) {
@@ -941,7 +987,7 @@ server <- function(input, output, session) {
                       ) +
                       theme_bw() + removeGrid() + ggtitle("Protein UMAP") +
                       theme(plot.title = element_text(hjust = 0.5, size = 20))
-                    g2 + g1
+                    g1 + g2
                   }
                 }
               }
@@ -956,6 +1002,34 @@ server <- function(input, output, session) {
   autoInvalidate <- reactiveTimer(2000)
   
   output$RNA_plot <- renderPlot({
+    if (input$cluster == 'feature_plot'){
+      
+
+      data_list <- datasetInput_d()
+      
+      sc <- data_list[[8]]
+
+      adtumap1 <- sc@reductions$umap_adt@cell.embeddings[, 1]
+      adtumap2 <- sc@reductions$umap_adt@cell.embeddings[, 2]
+      rnaumap1 <- sc@reductions$umap_rna@cell.embeddings[, 1]
+      rnaumap2 <- sc@reductions$umap_rna@cell.embeddings[, 2]
+      
+      gene <- input$gene
+      data_list <- datasetInput_d()
+      rnaumap_1 = rnaumap1
+      rnaumap_2 = rnaumap2
+      feature<- FeaturePlot(sc,features = c(gene))+xlim(min(rnaumap_1), max(rnaumap_1)) + ylim(min(rnaumap_2), max(rnaumap_2))
+      feature$labels$x <- 'UMAP_1'
+      feature$labels$y <- 'UMAP_2'
+      feature$data$UMAP_1 <- rnaumap_1
+      feature$data$UMAP_2 <- rnaumap_2
+      feature$data$umapadt_1 <- rnaumap_1
+      feature$data$umapadt_2 <- rnaumap_2
+      feature
+      
+    }
+    
+    else {
     data_list <- datasetInput_d()
     
     data = data_list[[1]]
@@ -970,43 +1044,48 @@ server <- function(input, output, session) {
     
     umaps2 <-
       umaps[which(
-        umaps$rnaumap_1 < ranges4$x[2]  & umaps$rnaumap_1 > ranges4$x[1] &
-          umaps$rnaumap_2 < ranges4$y[2] &
-          umaps$rnaumap_2 > ranges4$y[1]
+        umaps$adtumap_1 < ADTrange$x[2]  & umaps$adtumap_1 > ADTrange$x[1] &
+          umaps$adtumap_2 < ADTrange$y[2] &
+          umaps$adtumap_2 > ADTrange$y[1]
       ),]
+    
+
     
     cluster <- input$cluster
     umaps$cluster <- metadata[, cluster]
-    if (is.null(input$ADT_brush) & !is.null(input$plot4_brush)) {
-      umaps %>% ggplot(aes(rnaumap_1, rnaumap_2, col = cluster)) + geom_point(size =
-                                                                         0.5) +
-        labs(colour = cluster) +
+    
+    if (!is.null(input$ADT_brush)) {
+      umaps %>% ggplot(aes(rnaumap_1, rnaumap_2)) + geom_point(col = "grey89") +
         ggtitle("RNA UMAP (select cells to show top differential heatmaps)") +
+        geom_point(
+          data = umaps2,
+          aes(rnaumap_1, rnaumap_2),
+          col = "red",
+          size = 0.5
+        ) +
+        labs(colour = cluster) +
         theme_bw() + removeGrid()
     } else{
-      if (!is.null(input$ADT_brush) & is.null(input$plot4_brush)) {
-        umaps %>% ggplot(aes(rnaumap_1, rnaumap_2)) + geom_point(col = "grey89") +
-          geom_point(
-            data = umaps2,
-            aes(rnaumap_1, rnaumap_2),
-            col = "red",
-            size = 0.5
-          ) + labs(colour = cluster) +
-          ggtitle("RNA UMAP (select cells to show top differential heatmaps)") +
-          theme_bw() + removeGrid()
-      } else{
-        if (is.null(input$ADT_brush) & is.null(input$plot4_brush)) {
-          umaps %>% ggplot(aes(rnaumap_1, rnaumap_2, col = cluster)) +
-            geom_point(size = 0.5) +
-            labs(colour = cluster) +
-            ggtitle("RNA UMAP (select cells to show top differential heatmaps)") +
-            theme_bw() + removeGrid()
-        }
-      }
+      umaps %>% ggplot(aes(rnaumap_1, rnaumap_2, col = cluster)) + geom_point(size =
+                                                                                0.5) +
+        ggtitle("RNA UMAP (select cells to show top differential heatmaps)") +
+        geom_point(
+          data = umaps2,
+          aes(rnaumap_1, rnaumap_2),
+          col = "red",
+          size = 0.5
+        ) +
+        labs(colour = cluster) +
+        theme_bw() + removeGrid()
     }
+  }
   })
   
   output$ADT_plot <- renderPlot({
+    if (input$cluster == 'feature_plot'){
+      
+    }
+    else {
     data_list <- datasetInput_d() 
     data = data_list[[1]]
     umaps = data.frame(
@@ -1052,9 +1131,14 @@ server <- function(input, output, session) {
         labs(colour = cluster) +
         theme_bw() + removeGrid()
     }
+    }
   })
   
   output$heatmap <- renderPlot({
+    if (input$cluster == 'feature_plot'){
+      
+    }
+    else {
     data_list <- datasetInput_d() 
     data = data_list[[1]]
     umaps = data.frame(
@@ -1158,6 +1242,7 @@ server <- function(input, output, session) {
       
       draw(h2 + h, auto_adjust = F)
     }
+    }
   })
   
   output$sample_table <- renderTable({
@@ -1221,3 +1306,4 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
+
